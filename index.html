@@ -4690,7 +4690,7 @@
       const rows = entries.map(e=>{
         if(e.type==='think'){
           return `<div class="entry">
-            <div class="etype">🧠 THINK</div>
+            <div class="etype">THINK</div>
             <div class="etitle">${escapeHtml(e.question)}</div>
             <details><summary>View Thought</summary><div class="ebody">${escapeHtml(e.answer)}</div></details>
             <div class="emeta">Category: ${escapeHtml(e.category)}</div>
@@ -4698,7 +4698,7 @@
         }
         if(e.type==='speak'){
           return `<div class="entry">
-            <div class="etype">🎙 SPEAK</div>
+            <div class="etype">SPEAK</div>
             <div class="etitle">${escapeHtml(e.topic)}</div>
             <details><summary>View Session</summary><div class="ebody">${e.notes ? escapeHtml(e.notes) : 'No notes recorded.'}</div></details>
             <div class="emeta">Learned for 10 min · Spoke for 2 min</div>
@@ -4707,7 +4707,7 @@
         const learnedList = (e.learned||[]).map(x=>'· '+escapeHtml(x)).join('<br>');
         const interestList = (e.interesting||[]).map(x=>'· '+escapeHtml(x)).join('<br>');
         return `<div class="entry">
-          <div class="etype">✍️ REFLECT</div>
+          <div class="etype">REFLECT</div>
           <details open><summary>3 things learned</summary><div class="ebody">${learnedList||'—'}</div></details>
           <details style="margin-top:12px;"><summary>2 things found interesting</summary><div class="ebody">${interestList||'—'}</div></details>
           ${e.question ? `<div class="emeta" style="margin-top:12px; font-style:italic;">1 question: ${escapeHtml(e.question)}</div>` : ''}
