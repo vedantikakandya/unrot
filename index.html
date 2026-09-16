@@ -190,6 +190,9 @@
   }
   .timer.urgent{ color:#ff9a8d; }
   .timer-caption{ text-align:center; color:var(--ink-faint); font-size:14px; margin-bottom:44px; }
+  .session-prompt{ max-width:620px; margin:0 auto 30px; padding:20px 24px; border:1px solid var(--line); border-radius:16px; text-align:center; background:rgba(255,255,255,0.02); }
+  .session-prompt .qcategory{ margin-bottom:10px; }
+  .session-prompt .qtext{ font-size:clamp(22px,3vw,30px); }
 
   .think-focus{
     text-align:center; color:var(--ink-dim); font-size:15px; margin:0 auto 40px; max-width:340px; line-height:1.7;
@@ -304,6 +307,9 @@
   .entry .etitle{ font-family:var(--serif); font-size:18px; margin-bottom:10px; }
   .entry .ebody{ font-size:14px; color:var(--ink-dim); line-height:1.7; white-space:pre-wrap; }
   .entry .emeta{ margin-top:14px; font-size:12px; color:var(--ink-faint); }
+  .entry-actions{ display:flex; justify-content:flex-end; margin-top:16px; }
+  .delete-entry{ padding:7px 12px; border:1px solid rgba(255,154,141,0.35); border-radius:100px; color:#ffb0a6; font-size:12px; }
+  .delete-entry:hover{ border-color:#ff9a8d; background:rgba(255,154,141,0.08); }
   .entry details summary{ cursor:pointer; font-size:13px; color:var(--violet-soft); list-style:none; }
   .entry details summary::-webkit-details-marker{ display:none; }
   .entry details[open] summary{ margin-bottom:10px; }
@@ -311,6 +317,8 @@
   .empty-state{ text-align:center; padding:80px 24px; color:var(--ink-faint); }
   .empty-state .glyph{ font-size:34px; margin-bottom:18px; opacity:.7; }
   .empty-state p{ font-size:15px; max-width:340px; margin:0 auto; line-height:1.7; }
+  .timer-notice{ position:fixed; right:24px; bottom:24px; z-index:50; max-width:320px; padding:16px 20px; border:1px solid var(--line-strong); border-radius:14px; background:rgba(18,15,29,0.94); box-shadow:0 12px 36px rgba(0,0,0,.35); color:var(--ink); font-size:14px; opacity:0; transform:translateY(12px); pointer-events:none; transition:opacity .3s var(--ease), transform .3s var(--ease); }
+  .timer-notice.show{ opacity:1; transform:translateY(0); }
 
   footer{ text-align:center; padding:60px 24px 90px; position:relative; z-index:3; }
   footer .fmark{ font-family:var(--serif); font-style:italic; font-size:15px; color:var(--ink-faint); }
@@ -416,6 +424,10 @@
       <div id="think-session" style="display:none;">
         <div class="timer" id="think-timer">10:00</div>
         <div class="timer-caption">remaining</div>
+        <div class="session-prompt">
+          <div class="qcategory" id="think-session-category">Category</div>
+          <div class="qtext" id="think-session-question"></div>
+        </div>
         <p class="think-focus"><b>Think before you search.</b><br>Don't ask AI. Don't Google. Just think.</p>
 
         <textarea class="freewrite" id="think-answer" placeholder="What do YOU think?"></textarea>
@@ -464,6 +476,10 @@
       <div id="speak-learning" style="display:none;">
         <div class="timer" id="speak-timer">10:00</div>
         <div class="timer-caption">LEARNING TIME</div>
+        <div class="session-prompt">
+          <div class="topictag">TOPIC</div>
+          <div class="topicname" id="speak-learning-topic"></div>
+        </div>
         <p class="research-hint">Use this time to explore the topic.<br>You can Google, read, watch videos, research, learn.</p>
         <div class="notesbox">
           <h3>Quick Notes</h3>
@@ -563,6 +579,7 @@
   <div class="fmark">"Consume less. Think more."</div>
   <div class="fbrand">UNROT</div>
 </footer>
+<div class="timer-notice" id="timer-notice" role="status" aria-live="polite"></div>
 
 <script>
 (function(){
@@ -4296,6 +4313,18 @@
     return h;
   }
 
+  let timerNoticeHandle = null;
+  function notifyTimerFinished(message){
+    const notice = document.getElementById('timer-notice');
+    notice.textContent = message;
+    notice.classList.add('show');
+    clearTimeout(timerNoticeHandle);
+    timerNoticeHandle = setTimeout(()=> notice.classList.remove('show'), 5000);
+    if('Notification' in window && Notification.permission === 'granted'){
+      new Notification('UNROT timer finished', {body:message});
+    }
+  }
+
   /* ============ ATMOSPHERIC BACKGROUND (zone-aware) ============ */
   const ZONES = {
     home:    { glow:"radial-gradient(ellipse 60% 55% at 50% 32%, rgba(91,33,182,0.38), transparent 62%), radial-gradient(ellipse 70% 60% at 78% 78%, rgba(111,163,255,0.16), transparent 65%)",
@@ -4440,6 +4469,8 @@
     currentQuestion = getQuestionOfDay();
     document.getElementById('think-category').textContent = 'Category: ' + currentQuestion.c;
     document.getElementById('think-question').textContent = currentQuestion.q;
+    document.getElementById('think-session-category').textContent = 'Category: ' + currentQuestion.c;
+    document.getElementById('think-session-question').textContent = currentQuestion.q;
   }
 
   document.getElementById('think-start').addEventListener('click', ()=>{
@@ -4455,7 +4486,10 @@
     thinkTimerHandle = setInterval(()=>{
       thinkSecondsLeft--;
       updateThinkTimerDisplay();
-      if(thinkSecondsLeft<=0){ clearInterval(thinkTimerHandle); }
+      if(thinkSecondsLeft<=0){
+        clearInterval(thinkTimerHandle);
+        notifyTimerFinished('Your thinking timer is finished.');
+      }
     }, 1000);
   }
   function updateThinkTimerDisplay(){
@@ -4540,6 +4574,7 @@
   }
 
   document.getElementById('speak-start').addEventListener('click', ()=>{
+    document.getElementById('speak-learning-topic').textContent = currentTopic.n;
     showSpeakStage('learning');
     startLearnTimer();
   });
@@ -4553,6 +4588,7 @@
       updateLearnDisplay();
       if(learnSecondsLeft<=0){
         clearInterval(learnTimerHandle);
+        notifyTimerFinished('Learning time is finished.');
         enterSpeakTransition();
       }
     }, 1000);
@@ -4597,6 +4633,7 @@
       updateSpeakDisplay();
       if(speakSecondsLeft<=0){
         clearInterval(speakTimerHandle);
+        notifyTimerFinished('Speaking time is finished.');
         finishSpeakSession();
       }
     }, 1000);
@@ -4668,10 +4705,23 @@
     });
   });
 
+  document.getElementById('archive-content').addEventListener('click', event=>{
+    const button = event.target.closest('.delete-entry');
+    if(!button) return;
+    const type = button.dataset.type;
+    const index = Number(button.dataset.index);
+    const keys = {think:'unrot_thoughts', speak:'unrot_sessions', reflect:'unrot_reflections'};
+    const entries = LS.get(keys[type], []);
+    if(!Number.isInteger(index) || !entries[index]) return;
+    entries.splice(index, 1);
+    LS.set(keys[type], entries);
+    renderArchive();
+  });
+
   function renderArchive(){
-    const thoughts = LS.get('unrot_thoughts', []).map(t=>({...t, type:'think'}));
-    const sessions = LS.get('unrot_sessions', []).map(s=>({...s, type:'speak'}));
-    const reflections = LS.get('unrot_reflections', []).map(r=>({...r, type:'reflect'}));
+    const thoughts = LS.get('unrot_thoughts', []).map((t,index)=>({...t, type:'think', sourceIndex:index}));
+    const sessions = LS.get('unrot_sessions', []).map((s,index)=>({...s, type:'speak', sourceIndex:index}));
+    const reflections = LS.get('unrot_reflections', []).map((r,index)=>({...r, type:'reflect', sourceIndex:index}));
     let all = [...thoughts, ...sessions, ...reflections];
     if(archiveFilter!=='all') all = all.filter(e=> e.type===archiveFilter);
 
@@ -4689,11 +4739,20 @@
       const entries = byDate[date];
       const rows = entries.map(e=>{
         if(e.type==='think'){
+          const deeper = e.deeper || {};
+          const deeperAnswers = [
+            ['Why do you think this?', deeper.why],
+            ['What experiences influenced your answer?', deeper.experiences],
+            ['What would someone who disagrees with you say?', deeper.disagree],
+            ['Could you be wrong?', deeper.wrong]
+          ].filter(item=>item[1]);
           return `<div class="entry">
             <div class="etype">THINK</div>
             <div class="etitle">${escapeHtml(e.question)}</div>
             <details><summary>View Thought</summary><div class="ebody">${escapeHtml(e.answer)}</div></details>
+            ${deeperAnswers.length ? `<details style="margin-top:12px;"><summary>View Optional Answers</summary><div class="ebody">${deeperAnswers.map(item=>`<strong>${escapeHtml(item[0])}</strong><br>${escapeHtml(item[1])}`).join('<br><br>')}</div></details>` : ''}
             <div class="emeta">Category: ${escapeHtml(e.category)}</div>
+            <div class="entry-actions"><button class="delete-entry" data-type="think" data-index="${e.sourceIndex}">Delete</button></div>
           </div>`;
         }
         if(e.type==='speak'){
@@ -4702,6 +4761,7 @@
             <div class="etitle">${escapeHtml(e.topic)}</div>
             <details><summary>View Session</summary><div class="ebody">${e.notes ? escapeHtml(e.notes) : 'No notes recorded.'}</div></details>
             <div class="emeta">Learned for 10 min · Spoke for 2 min</div>
+            <div class="entry-actions"><button class="delete-entry" data-type="speak" data-index="${e.sourceIndex}">Delete</button></div>
           </div>`;
         }
         const learnedList = (e.learned||[]).map(x=>'· '+escapeHtml(x)).join('<br>');
@@ -4711,6 +4771,7 @@
           <details open><summary>3 things learned</summary><div class="ebody">${learnedList||'—'}</div></details>
           <details style="margin-top:12px;"><summary>2 things found interesting</summary><div class="ebody">${interestList||'—'}</div></details>
           ${e.question ? `<div class="emeta" style="margin-top:12px; font-style:italic;">1 question: ${escapeHtml(e.question)}</div>` : ''}
+          <div class="entry-actions"><button class="delete-entry" data-type="reflect" data-index="${e.sourceIndex}">Delete</button></div>
         </div>`;
       }).join('');
       return `<div class="day-group"><div class="day-date">${prettyDate(date)}</div>${rows}</div>`;
